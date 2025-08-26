@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1024, height=600, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Teclado Virtual com Assistente</title>
+  <link rel="stylesheet" href="AURALINKV12iot.CSS">
+  <!-- Fonte Digital-7 local -->
+  <style>
+    @font-face {
+      font-family: 'Digital-7';
+      src: url('digital_7/digital-7.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+    #hora, #data {
+      font-family: 'Digital-7', 'Orbitron', 'Courier New', monospace !important;
+    }
+    </style>
+
+</head>
+<body>
+  <video id="chat-video" style="margin-block-start: 0px;" class="background-video" src="chat mp4.mp4" autoplay loop muted playsinline style="display:block;"></video>
+  <video id="calendar-video" style="margin-block-start: 0px;" class="background-video" src="calendario mp4.mp4" autoplay loop muted playsinline style="display:none;"></video>
+  <video id="form-video" style="margin-block-start: 0px;" class="background-video" src="formulario mp4.mp4" autoplay loop muted playsinline style="display:none;"></video>
+  <video id="iot-video" style="margin-block-start: 0px;" class="background-video" src="iot mp4.mp4" autoplay loop muted playsinline style="display:none;"></video>
+
+  <div id="server-status" title="Status do servidor"></div>
+  <div id="voz-status" title="Status da interface de voz"></div>
+  <!-- Painel do chat e teclado -->
+  <div id="painel-chat" class="painel" style="display: flex;">
+    <!-- Botão de configuração no topo direito -->
+    <button id="btn-config-chat" title="Configurações" style="position: absolute; inset-block-start: 18px; inset-inline-end: 18px; z-index: 1001; background: #222; color: #fff; border-radius: 50%; border: none; font-size: 1.9rem; inline-size: 44px; block-size: 44px; box-shadow: 0 2px 8px #00000000; cursor: pointer;">
+      ⚙️
+    </button>
+    <!-- Botão para abrir o card de desligar/reiniciar -->
+    <button id="btn-power-card" title="Desligar ou Reiniciar" style="position: absolute; inset-block-start: 18px; inset-inline-end: 70px; z-index: 1001; background: #222; color: #fff; border-radius: 50%; border: none; font-size: 1.7rem; inline-size: 44px; block-size: 44px; box-shadow: 0 2px 8px #00000000; cursor: pointer;">
+      ⏻
+    </button>
+    <div class="info-wrapper" id="infoWrapper"> 
+      <h2 id="hora">00:00</h2>
+      <div class="weather-info" id="weatherInfo">
+        <div class="weather-icone-bloco">
+          <img id="weatherIcon" src="https://openweathermap.org/img/wn/01d@2x.png" alt="Clima">
+          <div id="weatherDesc" class="weather-desc"></div>
+        </div>
+        <div class="weather-temp-bloco">
+          <span id="weatherTemp"></span>
+          <div id="weatherCidade" class="weather-cidade"></div>
+        </div>
+      </div>
+      <p id="data">00/00/0000</p>
+    </div>
+    <div class="resposta-wrapper" id="respostaWrapper">
+      <!-- As mensagens serão inseridas via JS -->
+    </div>
+    <div class="teclado-wrapper visivel" id="keyboardWrapper">
+
+      <div class="container-input">
+        <input type="text" class="campo-input" id="input" placeholder="Digite aqui...">
+      </div>
+      <div class="teclado" id="keyboard"></div>
+    </div>
+  </div>
+
+  <!-- Painel do calendário e eventos -->
+  <div id="calendarMain" style="display:none;">
+    <div id="painel-calendario" style="margin-block-start: 0px;" class="painel">
+      <div id="main-content">
+        <div id="calendar-container">
+          <div class="header">
+            <button id="prev">◀</button>
+            <h2 id="month-year"></h2>
+            <button id="next">▶</button>
+          </div>
+          <div class="days-header">
+            <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+          </div>
+          <div id="calendar" class="calendar-grid"></div>
+        </div>
+        <div class="event-section" id="eventSection">
+          <div class="event-header">
+            <span id="event-date"></span>
+          </div>
+          <ul id="event-list"></ul>
+          <form id="event-form" style="display:none; flex-direction:column; gap:8px; margin-block-start:16px;">
+            <div class="input-roleta" id="input-roleta-date">
+              <input type="date" id="event-day" required>
+            </div>
+            <div class="input-roleta" id="input-roleta-time">
+              <input type="time" id="event-time" required>
+            </div>
+            <input type="text" id="event-name" maxlength="100" placeholder="Nome ou descrição do evento" required autocomplete="off">
+            
+            <div style="display:flex; align-items:center; gap:8px; margin-block:4px 8px;">
+            </div>
+            <div class="teclado-wrapper" id="eventKeyboardWrapper" style="display:none; margin-block-start:8px;">
+              <div class="teclado" id="event-keyboard"></div>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button type="submit" id="save-event-btn">Salvar</button>
+              <button type="button" id="cancel-event-btn">Cancelar</button>
+            </div>
+          </form>
+        </div>
+        <!-- Botão fora do quadro de eventos -->
+        <button id="add-event-btn" title="Adicionar evento" style="display:none;">+</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Painel IoT Universal -->
+  <div id="iotMain" style="display:none;">
+    <div id="painel-iot" class="painel">
+      <!-- Container para os cards dos dispositivos IoT -->
+      <div id="iotContent"
+        style="inline-size: 1300px; max-block-size: 650px; overflow-y: scroll; padding-inline-end: 0; scrollbar-gutter: stable both-edges;">
+        <!-- Os dispositivos cadastrados aparecerão aqui automaticamente via JS -->
+      </div>
+      <style>
+        /* Scrollbar ainda mais larga, visível e fácil de arrastar para o painel IoT */
+        #iotContent::-webkit-scrollbar {
+          inline-size: 78px;
+          background: transparent;
+          border-radius: 24px;
+        }
+        #iotContent::-webkit-scrollbar-thumb {
+          background: linear-gradient(135deg, #00f0ff80 60%, #ff00ff80 100%);
+          border-radius: 24px;
+          margin-inline-start: -52px;
+          border: 6px solid transparent;
+          min-block-size: 6px;
+        }
+        #iotContent::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(135deg, #00eeff00 40%, #ff00ffcc 80%);
+          border: 6px solid #00f0ff33;
+        }
+        #iotContent {
+          scrollbar-width: thin;
+          scrollbar-color: #00eeff00 transparent;
+        }
+      </style>
+      <!-- Formulário de cadastro universal -->
+      <form id="iotForm" style="display:none; z-index:3001; position:relative;" class="iot-form">
+        <div style="display: flex; gap: 12px;">
+          <label class="iot-label" style="flex:1;">
+            <span>Nome do dispositivo:</span>
+            <input type="text" id="iotNome" required maxlength="100" autocomplete="off" class="iot-input" placeholder="Ex: Sala TV">
+          </label>
+          <label class="iot-label" style="flex:1;">
+            <span>ID do dispositivo:</span>
+            <input type="text" id="iotId" required maxlength="100" autocomplete="off" class="iot-input" placeholder="Ex: lampada01">
+          </label>
+          <label class="iot-label" style="flex:1;">
+            <span>Tipo:</span>
+            <select id="iotTipo" class="iot-input" required>
+              <option value="" disabled selected>Selecione o tipo</option>
+              <option value="lampada">Lâmpada</option>
+              <option value="tomada">Tomada</option>
+              <option value="sensor">Sensor</option>
+              <option value="outro">Outro</option>
+            </select>
+          </label>
+        </div>
+        <div style="display: flex; gap: 12px;">
+          <label class="iot-label" style="flex:1;">
+            <span>Observações/Comandos:</span>
+            <input type="text" id="iotObs" class="iot-input" placeholder="Opcional" maxlength="200">
+          </label>
+        </div>
+        <div class="iot-form-botoes">
+          <button type="submit" class="iot-btn iot-btn-salvar">Salvar</button>
+          <button type="button" id="cancelarIotBtn" class="iot-btn iot-btn-cancelar">Cancelar</button>
+        </div>
+      </form>
+      <!-- Botão flutuante para adicionar dispositivo -->
+      <button id="add-iot-btn" title="Adicionar dispositivo"
+        style="position: fixed; inset-inline-end: 32px; inset-block-end: 32px; z-index: 2100; font-size: 2rem; inline-size: 56px; block-size: 56px; border-radius: 50%; background: #0074d9; color: #fff; border: none; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
+        +
+      </button>
+    </div>
+    <div id="iotMsg" style="display:none; margin-block-end:8px; color:#fff; background:#c00; padding:8px; border-radius:8px;"></div>
+
+    <!-- Cole o teclado AQUI dentro -->
+    <div id="iotKeyboardWrapper" style="display: none; position: flex; inset-inline: 10px; z-index: 3002; justify-content: center; align-items: flex-end; inset-block-end: 0px; padding-block: 10px;">
+      <div id="iot-keyboard" style="background:#fff; border-radius:12px 12px 10px 0; padding:16px; box-shadow:0 2px 16px #0003; min-inline-size:340px;"></div>
+    </div>
+  </div>
+
+  <!-- Card de confirmação para apagar evento -->
+<div id="confirm-delete-modal" style="display:none; position:fixed; z-index:3000; inset:0; background:rgba(0,0,0,0.45); align-items:center; justify-content:center;">
+  <div style="background:#fff; color:#222; padding:32px 24px; border-radius:16px; box-shadow:0 4px 24px #0003; min-inline-size:260px; text-align:center;">
+    <div style="font-size:1.2em; margin-block-end:18px;">Tem certeza que deseja apagar este evento?</div>
+    <div style="display:flex; gap:16px; justify-content:center;">
+      <button id="confirm-delete-btn" style="background:#c00; color:#fff; border:none; border-radius:6px; padding:8px 18px; font-size:1em; cursor:pointer;">Apagar</button>
+      <button id="cancel-delete-btn" style="background:#aaa; color:#fff; border:none; border-radius:6px; padding:8px 18px; font-size:1em; cursor:pointer;">Cancelar</button>
+    </div>
+  </div>
+</div>
+<!-- Modal de confirmação para limpar histórico -->
+<div id="confirm-clear-modal" style="display:none; position:fixed; z-index:9999; inset:0; background:rgba(0,0,0,0.45); align-items:center; justify-content:center;">
+  <div style="background:#fff; color:#222; padding:32px 24px; border-radius:16px; box-shadow:0 4px 24px #0003; min-inline-size:360px; text-align:center;">
+    <div style="font-size:1.2em; margin-block-end:18px;">Tem certeza que deseja apagar TODO o histórico do chat?<br><span style="color:#c00;">Essa ação não pode ser desfeita!</span></div>
+    <div style="display:flex; gap:16px; justify-content:center;">
+      <button id="confirm-clear-btn" style="background:#c00; color:#fff; border:none; border-radius:6px; padding:8px 18px; font-size:1em; cursor:pointer;">Apagar</button>
+      <button id="cancel-clear-btn" style="background:#aaa; color:#fff; border:none; border-radius:6px; padding:8px 18px; font-size:1em; cursor:pointer;">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de confirmação para deletar evento (card customizado, não alert) -->
+<div id="confirm-delete-event-modal" style="display:none; position:fixed; z-index:4100; inset:0; background:rgba(0,0,0,0.45); align-items:center; justify-content:center;">
+  <div id="confirm-delete-event-modal-content" style="background:#fff; color:#222; padding:32px 24px; border-radius:16px; box-shadow:0 4px 24px #0003; min-inline-size:340px; text-align:center; display:flex; flex-direction:column; align-items:center;">
+    <div id="confirm-delete-event-modal-message" style="font-size:1.2em; margin-block-end:18px;">
+      Tem certeza que deseja apagar este evento?<br>
+      <span id="confirm-delete-event-modal-warning" style="color:#c00;">Essa ação não pode ser desfeita!</span>
+    </div>
+    <div style="display:flex; gap:16px; justify-content:center;">
+      <button id="confirm-delete-event-btn" style="background:#c00; color:#fff; border:none; border-radius:6px; padding:8px 24px; font-size:1em; cursor:pointer;">Apagar</button>
+      <button id="cancel-delete-event-btn" style="background:#aaa; color:#fff; border:none; border-radius:6px; padding:8px 24px; font-size:1em; cursor:pointer;">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Configurações do Chat -->
+<div id="config-modal" style="display:none; position:fixed; z-index:4100; inset:0; background:rgba(0,0,0,0.45); align-items:center; justify-content:center;">
+  <div id="config-modal-content">
+    <h2 id="config-text">Configurações do Chat</h2>
+    <div style="margin-block-end:18px;">
+      
+    
+    </div>
+    <div style="margin-block-end:18px;">
+      <label>
+        <input type="checkbox" id="config-notif-chat" style="block-size:20px;inline-size:20px;">
+        <span id="texto-notif-chat" style="font-size:1.5em;">Notificações sonoras de eventos</span>
+      </label>
+    </div>
+    <!-- Sliders agrupados em coluna, dentro de uma moldura -->
+    <div class="config-sliders">
+      <div class="config-slider-bloco">
+        <span class="slider-label">Volume</span>
+        <div class="slider-row">
+          <span class="slider-sign">-</span>
+          <input type="range" id="config-volume-chat" min="0" max="1" step="0.01" value="1" class="slider-vertical">
+          <span class="slider-sign">+</span>
+        </div>
+        <span id="config-volume-chat-label">100%</span>
+      </div>
+      <div class="config-slider-bloco">
+        <span class="slider-label">Brilho</span>
+        <div class="slider-row">
+          <span class="slider-sign">-</span>
+          <input type="range" id="config-brilho-chat" min="0" max="1" step="0.01" value="1" class="slider-vertical">
+          <span class="slider-sign">+</span>
+        </div>
+        <span id="config-brilho-chat-label">100%</span>
+      </div>
+    </div>
+    <button id="btn-clear-historico" style="background:#c00; color:#fff; border:none; border-radius:6px; padding:8px 18px; font-size:1em; cursor:pointer; margin-block-end:12px;">Limpar histórico do chat</button>
+    <br>
+    <button id="fechar-config-chat" style="background:#aaa; color:#fff; border:none; border-radius:6px; padding:8px 8px; font-size:1em; cursor:pointer;">✖️</button>
+  </div>
+</div>
+
+  <!-- Card/modal de desligar/reiniciar -->
+  <div id="power-card-modal" style="display:none; position:fixed; z-index:5000; inset:0; background:rgba(0,0,0,0.45); align-items:center; justify-content:center;">
+    <div id="power-card-content" style="background:#fff; color:#222; padding:32px 24px; border-radius:16px; box-shadow:0 4px 24px #0003; min-inline-size:260px; text-align:center;">
+      <div style="font-size:1.2em; margin-block-end:18px;">Escolha uma opção:</div>
+      <div style="display:flex; gap:16px; justify-content:center; margin-block-end:18px;">
+        <button id="power-shutdown-btn" style="background:#c00; color:#fff; border:none; border-radius:6px; padding:12px 24px; font-size:1em; cursor:pointer;">⏻</button>
+        <button id="power-restart-btn" style="background:#f90; color:#fff; border:none; border-radius:6px; padding:12px 24px; font-size:1em; cursor:pointer;">↻</button>
+        <button id="power-suspend-btn" style="background:#222; color:#fff; border:none; border-radius:6px; padding:12px 24px; font-size:1em; cursor:pointer;">💤</button>
+      </div>
+      <button id="power-cancel-btn" style="background:#aaa; color:#fff; border:none; border-radius:6px; padding:8px 18px; font-size:1em; cursor:pointer;">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Modal de detalhes do dispositivo IoT (criado dinamicamente) -->
+  <div id="iotDetalhesModal" style="display:none; position:fixed; z-index:4000; inset:0; background:rgba(0,0,0,0.45); align-items:center; justify-content:center;">
+    <div class="iot-detalhes-content" style="background:#0000007d; color:#fff; border:7px solid white; padding:32px 24px; border-radius:16px; box-shadow:0 4px 24px #0003; min-inline-size:740px; block-size:350px; text-align:center; display:flex; flex-direction:column; align-items:center;">
+      <div class="iot-detalhes-nome" id="iotDetalhesNome"></div>
+      <div class="iot-detalhes-row">
+        <span class="iot-detalhes-id"><b>ID:</b> <span id="iotDetalhesId"></span></span>
+        <span class="iot-detalhes-tipo"><b>Tipo:</b> <span id="iotDetalhesTipo"></span></span>
+      </div>
+      <div class="iot-detalhes-obs"><b>Comandos/Observações:</b><br><span id="iotDetalhesObs"></span></div>
+      <div style="display:flex; gap:16px; margin-block-start:12px;">
+        <button id="fecharIotDetalhesBtn" style="background:#c00; color:#fff; border:none; border-radius:6px; padding:8px 18px; font-size:1em; cursor:pointer;">⛌</button>
+        <button id="deletarIotBtn" style="background:#a00; color:#fff; border:none; border-radius:6px; padding:8px 18px; font-size:1em; cursor:pointer;">🗑️ Deletar dispositivo</button>
+        <button id="editarIotBtn" style="background:#0d2ff3; color:#fff; border:none; border-radius:6px; padding:8px 18px; font-size:1em; cursor:pointer;">✏️ Editar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de confirmação para deletar dispositivo IoT -->
+  <div id="confirm-delete-iot-modal" style="display:none; position:fixed; z-index:4100; inset:0; background:rgba(0,0,0,0.45); align-items:center; justify-content:center;">
+    <div style="background:#222; color:#222; padding:32px 24px; border-radius:16px; box-shadow:0 4px 24px #0003; min-inline-size:340px; text-align:center; display:flex; flex-direction:column; align-items:center;" id="delete-iot">
+      <div style="font-size:1.2em; margin-block-end:18px;">
+        Você realmente deseja deletar este dispositivo?
+      </div>
+      <div style="display:flex; gap:16px; justify-content:center;">
+        <button id="confirm-delete-iot-btn" style="background:#c00; color:#fff; border:none; border-radius:6px; padding:8px 24px; font-size:1em; cursor:pointer;">Deletar</button>
+        <button id="cancel-delete-iot-btn" style="background:#aaa; color:#fff; border:none; border-radius:6px; padding:8px 24px; font-size:1em; cursor:pointer;">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="AURALINK_BASEV12iot.JS"></script>
+  <script src="AURALINK_CALENDARIOV12iot.JS"></script>
+  <script src="AURALINK_TECLADOV12iot.JS"></script>
+  <script src="AURALINK_IoTV12iot.JS"></script>
+  <script>
+document.getElementById('btn-power-card').onclick = function() {
+  document.getElementById('power-card-modal').style.display = 'flex';
+};
+document.getElementById('power-cancel-btn').onclick = function() {
+  document.getElementById('power-card-modal').style.display = 'none';
+};
+document.getElementById('power-shutdown-btn').onclick = function() {
+  if(window.enviarComandoVoz) enviarComandoVoz('desligar');
+  document.getElementById('power-card-modal').style.display = 'none';
+};
+document.getElementById('power-restart-btn').onclick = function() {
+  if(window.enviarComandoVoz) enviarComandoVoz('reiniciar');
+  document.getElementById('power-card-modal').style.display = 'none';
+};
+// Botão de suspender a tela
+document.getElementById('power-suspend-btn').onclick = function() {
+  if(window.enviarComandoVoz) enviarComandoVoz('suspender');
+  document.getElementById('power-card-modal').style.display = 'none';
+};
+// Função para enviar comando à interface de voz via HTTP
+window.enviarComandoVoz = function(comando) {
+  fetch('http://localhost:5001/power', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ comando: comando })
+  })
+  .then(resp => resp.json())
+  .then(function(data) {
+    console.log('Resposta do comando:', data);
+    if(data.ok) {
+      alert('Comando enviado: ' + comando);
+    } else {
+      alert('Falha ao enviar comando: ' + (data.erro || 'erro desconhecido'));
+    }
+  })
+  .catch(function(err) {
+    alert('Erro ao conectar à interface de voz!');
+    console.error(err);
+  });
+};
+
+// --- Controle automático de brilho por inatividade ---
+(function() {
+  let brilhoAnterior = 1;
+  let timeoutBrilho = null;
+  const root = document.documentElement;
+
+  // Cria um filtro de brilho na tag html
+  function setBrilho(valor) {
+    root.style.transition = 'filter 0.4s';
+    root.style.filter = `brightness(${valor})`;
+  }
+
+  // Função para restaurar o brilho anterior
+  function restaurarBrilho() {
+    setBrilho(brilhoAnterior);
+  }
+
+  // Função para reduzir o brilho ao mínimo
+  function reduzirBrilho() {
+    setBrilho(0.08);
+  }
+
+  // Sempre que o usuário interagir, restaura o brilho e reinicia o timer
+  function atividadeUsuario() {
+    clearTimeout(timeoutBrilho);
+    restaurarBrilho();
+    timeoutBrilho = setTimeout(reduzirBrilho, 100000);
+  }
+
+  // Integra com o controle manual de brilho (slider)
+  const sliderBrilho = document.getElementById('config-brilho-chat');
+  if (sliderBrilho) {
+    sliderBrilho.addEventListener('input', function() {
+      brilhoAnterior = parseFloat(sliderBrilho.value) || 1;
+      setBrilho(brilhoAnterior);
+      atividadeUsuario();
+    });
+    // Inicializa o valor do brilho
+    brilhoAnterior = parseFloat(sliderBrilho.value) || 1;
+    setBrilho(brilhoAnterior);
+  }
+
+  // Eventos de interação do usuário
+  ['mousedown', 'touchstart', 'mousemove', 'keydown'].forEach(evt => {
+    window.addEventListener(evt, atividadeUsuario, {passive: true});
+  });
+
+  // Inicia o timer ao carregar a página
+  atividadeUsuario();
+})();
+
+function atualizarSliderPreenchimento(slider) {
+  const percent = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
+  slider.style.setProperty('--percent', percent + '%');
+}
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('input[type="range"].slider-vertical').forEach(function(slider) {
+    atualizarSliderPreenchimento(slider);
+    slider.addEventListener('input', function() {
+      atualizarSliderPreenchimento(slider);
+    });
+  });
+});
+
+/**
+ * Exibe o card/modal customizado para confirmação de deleção de evento.
+ * onConfirm: função chamada se o usuário confirmar.
+ */
+window.showDeleteEventModal = function(onConfirm) {
+  const modal = document.getElementById('confirm-delete-event-modal');
+  modal.style.display = 'flex';
+  const btnConfirm = document.getElementById('confirm-delete-event-btn');
+  const btnCancel = document.getElementById('cancel-delete-event-btn');
+  // Remove listeners antigos
+  btnConfirm.onclick = null;
+  btnCancel.onclick = null;
+  btnConfirm.onclick = function() {
+    modal.style.display = 'none';
+    if (typeof onConfirm === 'function') onConfirm();
+  };
+  btnCancel.onclick = function() {
+    modal.style.display = 'none';
+  };
+};
+
+  // Função para deletar dispositivo IoT
+  function deletarDispositivoIot(id) {
+    if (!id) return;
+    fetch("http://192.168.1.100:5000/devices/" + encodeURIComponent(id), {
+      method: "DELETE",
+      headers: {
+        "Accept": "application/json"
+      }
+    })
+    .then(resp => {
+      // Ignora 404 para OPTIONS (pré-flight CORS), só trata erro se for DELETE real
+      if (
+        resp.status === 404 &&
+        resp.url.endsWith("/devices/" + encodeURIComponent(id)) &&
+        resp.type !== "opaque"
+      ) {
+        throw new Error('Dispositivo não encontrado no servidor (404)');
+      }
+      if (!resp.ok) throw new Error('Falha ao deletar dispositivo');
+      return resp.json();
+    })
+    .then(() => {
+      document.getElementById('iotDetalhesModal').style.display = 'none';
+      document.getElementById('confirm-delete-iot-modal').style.display = 'none';
+      // Atualiza a lista de dispositivos após deletar
+      if (typeof carregarDispositivosIoT === 'function') {
+        carregarDispositivosIoT();
+      } else if (window.carregarDispositivosIoT) {
+        window.carregarDispositivosIoT();
+      }
+    })
+    .catch(err => {
+      alert('Erro ao deletar dispositivo: ' + (err.message || err));
+    });
+  }
+
+  // Função para mostrar detalhes do dispositivo (deve ser chamada ao clicar no card)
+  window.mostrarQuadroDetalhesIot = function(dispositivo) {
+    const modal = document.getElementById('iotDetalhesModal');
+    document.getElementById('iotDetalhesNome').textContent = dispositivo.nome || '';
+    document.getElementById('iotDetalhesId').textContent = dispositivo.id || '';
+    document.getElementById('iotDetalhesTipo').textContent = dispositivo.tipo || '';
+    document.getElementById('iotDetalhesObs').textContent = dispositivo.obs || 'Nenhum comando cadastrado.';
+    modal.style.display = 'flex';
+
+    document.getElementById('fecharIotDetalhesBtn').onclick = function() {
+      modal.style.display = 'none';
+    };
+    document.getElementById('deletarIotBtn').onclick = function() {
+      // Abre o modal de confirmação
+      const confirmModal = document.getElementById('confirm-delete-iot-modal');
+      confirmModal.style.display = 'flex';
+      // Remove listeners antigos
+      const btnConfirm = document.getElementById('confirm-delete-iot-btn');
+      const btnCancel = document.getElementById('cancel-delete-iot-btn');
+      btnConfirm.onclick = null;
+      btnCancel.onclick = null;
+      btnConfirm.onclick = function() {
+        deletarDispositivoIot(dispositivo.id);
+      };
+      btnCancel.onclick = function() {
+        confirmModal.style.display = 'none';
+      };
+    };
+    // Novo: botão editar
+    document.getElementById('editarIotBtn').onclick = function() {
+      modal.style.display = 'none';
+      // Abre o formulário de edição com dados preenchidos
+      const iotForm = document.getElementById('iotForm');
+      if (iotForm) {
+        iotForm.style.display = 'block';
+        document.getElementById('iotKeyboardWrapper').style.display = 'flex';
+        document.getElementById('add-iot-btn').style.display = 'none';
+        document.getElementById('iotContent').style.display = 'none';
+        document.getElementById('form-video').style.display = 'block';
+        document.getElementById('chat-video').style.display = 'none';
+        document.getElementById('calendar-video').style.display = 'none';
+        document.getElementById('iot-video').style.display = 'none';
+        // Preenche campos
+        document.getElementById('iotNome').value = dispositivo.nome || '';
+        document.getElementById('iotId').value = dispositivo.id || '';
+        document.getElementById('iotTipo').value = dispositivo.tipo || '';
+        document.getElementById('iotObs').value = dispositivo.obs || '';
+        // Marca modo edição
+        iotForm.dataset.editando = dispositivo.id || '';
+        // Foca e seleciona o campo nome
+        const nomeInput = document.getElementById('iotNome');
+        if (nomeInput) {
+          nomeInput.focus();
+          nomeInput.select();
+        }
+      }
+    };
+  };
+  </script>
+</body>
+</html>
+</html>
+</html>
+</html>
+</html>
